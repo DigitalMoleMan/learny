@@ -1,0 +1,10 @@
+{
+	"name": "learny",
+	"description": "a bot that learns!",
+	"version": "0.1",
+	"dependencies": {
+		"brain.js": "^1.6.1",
+		"file-system": "^2.2.2",
+		"socket.io": "^2.2.0"
+	}
+}
