@@ -20,3 +20,7 @@
 * [brain.js](https://github.com/BrainJS/brain.js)
 * [file-system](https://www.npmjs.com/package/file-system)
 * [socket.io](https://socket.io/)
+
+### Diagram:
+
+![alt text](dia.png)
