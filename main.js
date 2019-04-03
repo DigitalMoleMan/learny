@@ -1,35 +1,27 @@
+/**
+ * 
+ */
+
 const socket = io.connect("localhost:3000");
+const msgOutput = document.getElementById('output');
+const msgInput = document.getElementById('input');
 
-const messageLog = document.getElementById("messageLog");
-const messageInput = document.getElementById("messageInput")
-
-var messages = new Array;
-
-socket.on('msgLog', log => {
-	messageLog.innerHTML = '';
-	log.forEach(msg => {
-		pushMessage(msg);		
-	});
+msgInput.addEventListener('keypress', (e) => {
+	if (e.key == 'Enter') {
+		send(msgInput.value);
+		msgInput.value = '';
+	}
 })
 
-socket.on('reply', message => {
-	pushMessage(message)
-});
+function send(input) {
+	socket.emit('send', input);
+}
 
-messageInput.addEventListener('keyup', (e) => {
-	if (e.key.toLowerCase() == 'enter') sendMessage(messageInput.value);
+socket.on('result', result => {
+	console.log(result);
+	msgOutput.value = result;
 })
 
-function sendMessage(message){
-	socket.emit('send', message);
-	pushMessage(message)
-	messageInput.value = '';
-}
 
-function pushMessage(message){
-	const p = document.createElement('p');
-	p.innerHTML = message;
-	messageLog.insertBefore(p, null);
-}
-
+restore = () => socket.emit('restore')
 save = () => socket.emit('save');
