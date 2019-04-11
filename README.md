@@ -16,11 +16,23 @@
 
 ## Planning
 
-### Modules:
+### Modules
 * [brain.js](https://github.com/BrainJS/brain.js)
 * [file-system](https://www.npmjs.com/package/file-system)
 * [socket.io](https://socket.io/)
 
-### Diagram:
+### Diagram
 
 ![alt text](dia.png)
+
+### Style
+
+Page looking like a command prompt/terminal.
+* Font:
+	* Size: 16
+	* Font: Consolas
+* Colors: 
+	* Screen Text: 192, 192, 192
+	* Screen Background: 0, 0, 0
+	* Popup Text: 128, 0, 128
+	* Popup Background: 255, 255, 255

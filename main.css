@@ -1,0 +1,12 @@
+*{
+	user-select: none;
+	outline: none;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	border: none;
+	background-color: #000;
+	color: #c0c0c0;
+	font-family: Consolas,monaco,monospace; 
+	font-size: 14px;
+}

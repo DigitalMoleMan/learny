@@ -11,92 +11,60 @@ const config = {
 	leakyReluAlpha: 0.01 // supported for activation type 'leaky-relu'
 };
 
-const net = new brain.recurrent.LSTMTimeStep();
-//net.fromJSON(JSON.parse(fs.readFileSync("net.json", "utf8")));
-console.log("Loaded net from net.json");
+const net = new brain.recurrent.LSTM();
 
-var words = JSON.parse(fs.readFileSync("words.json", "utf8"));
-console.log(words);
-
-var msgLog = JSON.parse(fs.readFileSync("msgLog.json", "utf8"));
+var lastMessage = "hello!";
 
 io.on("connection", socket => {
 	console.log(`${socket.id} connected`);
 
-	socket.emit('postMsgLog', msgLog);
-
-	socket.on('send', (clientInput) => {
-		console.log(clientInput)
-		train(clientInput, clientOutput);
+	socket.on('setLast', msg => {
+		lastMessage = msg;
 	})
 
-	socket.on("test", (clientInput) => {
-		console.log(clientInput);
-		run(clientInput)
+	socket.on('save', () => saveTraining())
+	socket.on('load', () => loadTraining())
+	socket.on('sendMessage', clientMessage => {
+		var result = '';
+		while (result == '') {
+			train(lastMessage, clientMessage);
+			result = generateReply(lastMessage);
+		}
+		console.log(result);
+		lastMessage = clientMessage;
 	});
-
-	socket.on('restore', () => restoreNet());
-	socket.on("save", () => saveNet());
 
 	socket.on('disconnect', (reason) => {
 		console.log(`${socket.id} disconnected - ${reason}`);
-	})
-
-
+	});
 });
 
-train = (input, output) => {
-	var inData = new Array;
-	var outData = new Array;
-	input.forEach(word => {
-		if (!words.includes(word)) words.push(word);
-		inData.push(words.indexOf(word))
-	})
-
-	output.forEach(word => {
-		if (!words.includes(word)) words.push(word);
-
-		outData.push(words.indexOf(word))
-	})
-
-
-
-	console.log(inData)
-	console.log(outData)
-	net.train({
-		input: inData,
-		output: outData
-	}, {
-		iterations: 100
-	})
-
-	fs.writeFile("words.json", JSON.stringify(words));
-	//fs.writeFile("net.json", JSON.stringify(net.toJSON()));
-}
-
-function run(input) {
-	var inData = new Array;
-	input.forEach(word => {
-		if (words.includes(word)) inData.push(words.indexOf(word));
+function train(inputMessage, outputMessage) {
+	console.log(`training on input: ${inputMessage.split('')}, output: ${outputMessage.split('')}`);
+	net.train([{
+		input: inputMessage.split(''),
+		output: outputMessage.split('')
+	}], {
+		errorThresh: 0.00001,
+		iterations: 1000
 	});
-	console.log(inData);
-	var outData = net.run(inData);
-	console.log(outData);
-	var output = new Array;
-	outData.forEach(word => {
-		output.push(words[Math.round(word)]);
-	})
-	console.log(output);
-	io.emit('result', (output));
 }
 
-
-function restoreNet() {
-	net.fromJSON(JSON.parse(fs.readFileSync("net.json", "utf8")));
-	console.log("restored net from [version]")
+function generateReply(inputMessage) {
+	var reply = net.run(inputMessage.split(''));
+	return reply
 }
 
-function saveNet() {
-
-	console.log('net saved to [version]');
+function saveTraining() {
+	fs.writeFile('net.json', JSON.stringify(net.toJSON()));
 }
+
+function loadTraining() {
+	net.fromJSON(JSON.parse(fs.readFile('net.json', 'utf8')));
+}
+
+function saveVocab() {
+
+}
+
+function loadVocab() {}
