@@ -2,44 +2,44 @@
  * 
  */
 
-const ip = 'localhost';
-const port = 3000;
+const ip = 'localhost'; //server ip
+const port = 3000; //server port
 
 const socket = io.connect(`${ip}:${port}`);
 const msgOutput = document.getElementById('output');
 const msgInput = document.getElementById('input');
 const newLine = document.getElementById('newLine');
 
-socket.on('connect', () => {
-	insert(`Connected to server on ${ip}:${port}`)
-	insert('');
-})
+socket.on('connect', () => addLine(`Connected to server on ${ip}:${port}`))
 
-document.addEventListener('mouseup', () => {
-	msgInput.focus();
-})
+socket.on('message', (message) => addLine(`learny>${message}`))
+
+document.addEventListener('mouseup', () => msgInput.focus())
+
 
 msgInput.addEventListener('keypress', (e) => {
 	if (e.key == 'Enter') {
 		sendMessage(msgInput.value);
-		insert(`learny>${msgInput.value}`);
+		addLine(`>${msgInput.value}`);
 		msgInput.value = '';
 		msgInput.scrollIntoView();
 	}
 })
 
-function insert(input) {
+/**
+ * @function insert posts a new line in the log
+ * @param {String} input 
+ */
+function addLine(input) {
 	var span = document.createElement('span');
+	span.className = 'line';
 	span.innerHTML = input;
 	document.body.insertBefore(span, newLine);
 	document.body.insertBefore(document.createElement('br'), newLine);
 }
 
-
 /**
- * 
+ * @function sendMessage sends [message] to the server 
  * @param {String} message
  */
-function sendMessage(message){
-	socket.emit('sendMessage', message);
-}
+sendMessage = (message) => socket.emit('sendMessage', message);

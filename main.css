@@ -1,12 +1,30 @@
 *{
 	user-select: none;
 	outline: none;
+}
+
+body{
+	overflow-x: hidden;
 	margin: 0;
 	padding: 0;
-	width: 100%;
+	width: 100vw;
 	border: none;
 	background-color: #000;
 	color: #c0c0c0;
-	font-family: Consolas,monaco,monospace; 
+	font-family: Consolas, monaco, monospace;
 	font-size: 14px;
+}
+
+span{
+	width: 100vw;
+}
+
+input{
+	width: 99vw;
+	line-break: normal;
+	border:inherit;
+	background-color: inherit;
+	color: inherit;
+	font-family: inherit;
+	font-size: inherit
 }
