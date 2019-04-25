@@ -2,7 +2,7 @@
  * 
  */
 
-const ip = 'localhost'; //server ip
+const ip = '192.168.17.148'; //server ip
 const port = 3000; //server port
 
 const socket = io.connect(`${ip}:${port}`);
@@ -20,9 +20,9 @@ document.addEventListener('mouseup', () => msgInput.focus())
 msgInput.addEventListener('keypress', (e) => {
 	if (e.key == 'Enter') {
 		sendMessage(msgInput.value);
-		addLine(`>${msgInput.value}`);
-		msgInput.value = '';
-		msgInput.scrollIntoView();
+		
+		
+		
 	}
 })
 
@@ -34,6 +34,7 @@ function addLine(input) {
 	var span = document.createElement('span');
 	span.className = 'line';
 	span.innerHTML = input;
+	console.log(input);
 	document.body.insertBefore(span, newLine);
 	document.body.insertBefore(document.createElement('br'), newLine);
 }
@@ -42,4 +43,11 @@ function addLine(input) {
  * @function sendMessage sends [message] to the server 
  * @param {String} message
  */
-sendMessage = (message) => socket.emit('sendMessage', message);
+sendMessage = (message) => {
+	socket.emit('sendMessage', message);
+	addLine(`>${msgInput.value}`);
+	msgInput.value = '';
+	msgInput.scrollIntoView();
+}
+
+toggleTraining = () => socket.emit('toggleTraining');
