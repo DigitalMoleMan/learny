@@ -2,7 +2,7 @@
  * 
  */
 
-const ip = '192.168.17.148'; //server ip
+const ip = '192.168.27.248'; //server ip
 const port = 3000; //server port
 
 const socket = io.connect(`${ip}:${port}`);
