@@ -1,9 +1,23 @@
+
+const express = require('express');
+const app = express();
+const expressPort = 3001;
+
+const mysql = require('mysql');
+const mysqlConnection = mysql.createConnection({
+	host: 'localhost',
+	user: 'learny',
+	password: 'pass',
+	database: 'learny_data'
+})
+
+mysqlConnection.connect()
+
 const brain = require('brain.js');
 const fs = require('file-system');
 
-const port = 3000; // server port;
-const io = require('socket.io')(port); //server start
-
+const ioPort = 3000; // server port;
+const io = require('socket.io')(ioPort); //server start
 
 const config = {
 	binaryThresh: 0.5,
@@ -17,14 +31,14 @@ const net = new brain.recurrent.LSTM(config);
 var vocab = new Array;
 
 var trainingOptions = {
-	file: 'training_1.json',
+	file: 'training/ver_2.json',
 	load: false,
-	save: false
+	save: true
 }
 
 var vocabOptions = {
-	file: 'vocab_1.json',
-	load: false,
+	file: 'vocab/vocab_1.json',
+	load: true,
 	save: false
 }
 
@@ -32,15 +46,21 @@ loadTraining();
 
 loadVocab();
 
+//console.log(vocab)
 const initData = require('./data.json');
 
-var trainingMode = true
+var trainingMode = false;
+/*
+initData.forEach(message => {
+	console.log(toWords(toData(message.toLowerCase().split(' '))));
+})
+*/
+saveVocab();
+
 
 while (trainingMode) {
 
-	var index = Math.floor(Math.random() * initData.length);
-
-	if (index == initData.length) index--;
+	var index = Math.floor(Math.random() * (initData.length - 1));
 
 	var result = train(initData[index], initData[index + 1])
 
@@ -53,7 +73,7 @@ while (trainingMode) {
 }
 
 io.on("connection", socket => {
-	console.log(`[SERVER]	${socket.id} connected`);
+	console.log(`[SERVER] ${socket.id} connected`);
 
 	socket.on('sendMessage', (clientMessage) => {
 		var reply = generateReply(clientMessage)
@@ -65,32 +85,27 @@ io.on("connection", socket => {
 	socket.on('load', () => loadTraining())
 	socket.on('toggleTraining', () => trainingMode = !trainingMode);
 
-	socket.on('disconnect', (reason) => console.log(`[SERVER]	${socket.id} disconnected - ${reason}`));
+	socket.on('disconnect', (reason) => console.log(`[SERVER] ${socket.id} disconnected - ${reason}`));
 });
 
 function toData(wordArr) {
-	var data = new Array;
+	var data = new String;
 
 	wordArr.forEach(word => {
-		//console.log(`[VOCAB]	word: ${word}`);
-		if (!vocab.includes(word)) {
-			vocab.push(word);
-			//console.log(vocab);
-		}
+		if (!vocab.includes(word)) vocab.push(word);
 
-		data.push(vocab.indexOf(word));
+		data += (vocab.indexOf(word) + " ");
 	});
+	//console.log(vocab);
 
 	return data
 }
 
 function toWords(dataArr) {
-	var words = new Array;
-	//console.log(dataArr);
+	var words = new String;
 	for(i=0;i<dataArr.length;i++){
-			words.push(vocab[dataArr[i]]);
-			console.log(words);
-	}
+		(vocab[dataArr[i]] != undefined) ? words += vocab[dataArr[i]] : console.log('undefined word:' + dataArr[i]);
+	};
 
 	return words
 }
@@ -105,15 +120,16 @@ function train(inputMessage, outputMessage) {
 
 
 
-	var inputData = inputMessage.toLowerCase().split('');
-	var outputData = outputMessage.toLowerCase().split('');
+	var inputData = toData(inputMessage.toLowerCase().split('')).split('');
+	var outputData = toData(outputMessage.toLowerCase().split('')).split('');
 
 
 	//console.log(`	inputData: ${inputData}`);
 	//console.log(`	outputData: ${outputData}`);
 
-	loadTraining();
+	//loadTraining();
 
+	//console.log(`[BOT] beforeOutput: ${net.run(inputData)}`);
 
 
 	net.train([{
@@ -127,10 +143,12 @@ function train(inputMessage, outputMessage) {
 	});
 
 
-	var trainResult = net.run(inputData);
+	var trainResult = toWords(net.run(inputData).split(' '));
 
-	console.log(`[BOT]	sampleOutput: ${trainResult}`);
+	console.log(`[BOT] afterOutput: ${trainResult}`);
+	console.log(`---------------------------------`)
 
+	
 	return trainResult;
 }
 
@@ -140,13 +158,9 @@ function train(inputMessage, outputMessage) {
  * @param {String} inputMessage 
  */
 function generateReply(inputMessage) {
-	var inputData = inputMessage.split('');
-	var reply = net.run(inputData, {
-		errorThresh: 0.015,
-		iterations: 20000,
-		log: false,
-		logPeriod: 100,
-	});
+	var inputData = toData(inputMessage.toLowerCase().split('')).split('');
+	var reply = toWords(net.run(inputData).split(' '));
+	console.log(`[BOT] reply: ${reply}`);
 	return reply
 }
 
@@ -156,11 +170,9 @@ function generateReply(inputMessage) {
  * TODO: implement net "version control" in order to undo bad training.
  */
 function saveTraining() {
-	if (trainingOptions.load) {
-		fs.writeFileSync(`${trainingOptions.file}`, JSON.stringify(net.toJSON()), (err) => {
-			if (err) throw err;
-		});
-		console.log(`[TRAINING]	SAVED to ${trainingOptions.file}`);
+	if (trainingOptions.save) {
+		fs.writeFileSync(`${trainingOptions.file}`, JSON.stringify(net.toJSON()));
+		console.log(`[TRAINING] SAVED to ${trainingOptions.file}`);
 	}
 }
 
@@ -171,24 +183,26 @@ function saveTraining() {
  */
 function loadTraining() {
 	if (trainingOptions.load) {
-		net.fromJSON(JSON.parse(fs.readFileSync(`${trainingOptions.file}`, "utf8")));
-		console.log(`[TRAINING]	LOADED from ${trainingOptions.file}`);
+		try {
+			net.fromJSON(JSON.parse(fs.readFileSync(`${trainingOptions.file}`, "utf8")));
+			console.log(`[TRAINING]	LOADED from ${trainingOptions.file}`);
+		} catch {
+			console.log(`[TRAINING] ${trainingOptions.file} not found`);
+		}
 	}
 }
 
 
 function saveVocab() {
 	if (vocabOptions.save) {
-		fs.writeFileSync(`vocab_1.json`, JSON.stringify(vocab), (err) => {
-			if (err) throw err;
-		});
-		console.log(`[VOCAB]	SAVED to vocab_1.json`);
+		fs.writeFileSync(`${vocabOptions.file}`, JSON.stringify(vocab));
+		console.log(`[VOCAB] SAVED to ${vocabOptions.file}`);
 	}
 }
 
 function loadVocab() {
 	if (vocabOptions.load) {
-		vocab = JSON.parse(fs.readFileSync(`vocab_1.json`, "utf8"));
-		console.log(`[VOCAB]	LOADED from vocab_1.json`);
+		vocab = JSON.parse(fs.readFileSync(vocabOptions.file, "utf8"));
+		console.log(`[VOCAB] LOADED from ${vocabOptions.file}`);
 	}
 }
