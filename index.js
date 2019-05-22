@@ -1,6 +1,3 @@
-
-
-
 const brain = require('brain.js');
 const fs = require('file-system');
 
@@ -39,41 +36,29 @@ var vocabOptions = {
 	save: false
 }
 
-//loadTraining();
+loadTraining();
 
 //loadVocab();
 
 //console.log(vocab)
 const initData = require('./data.json');
 
-//initData.forEach(msg => console.log(msg))
 
 var trainingMode = false;
-/*
-initData.forEach(message => {
-	console.log(toWords(toData(message.toLowerCase().split(' '))));
-})
 
-
-*/
-//saveVocab();
-
-getWord = (word) => {
-	var vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)];
+/**
+ * @param {function} callback
+ */
+getWord = (word, callback) => {
+	var vocabIndex
+	try {
+		vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)].id;
+	} catch {
+		insertVocab(word, loadVocab(() => vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)].id));
+	}
 	console.log(vocabIndex);
-	if (vocabIndex == undefined) {
-		insertVocab(word);
+	callback(vocabIndex);
 
-		vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)];
-
-		setTimeout(() => {
-			console.log("added");
-			console.log(vocabIndex);
-			return vocabIndex;
-		}, 1000);
-		
-
-	} else return vocabIndex;
 }
 getId = (id) => vocab[vocab.findIndex(elmt => elmt.id === id)];
 
@@ -119,11 +104,11 @@ function toData(input) {
 	var data = new Array;
 
 	wordArr.forEach((word) => {
-		data.push(getWord(word).id);
+		getWord(word, (wordId) => data.push(wordId));
 
 	});
 	console.log(data);
-	return data
+	return data;
 }
 
 /**
@@ -132,13 +117,12 @@ function toData(input) {
  */
 function toWords(dataArr) {
 	var words = new String;
-	/*
+
 	for (i = 0; i < dataArr.length; i++) {
-		(vocab[dataArr[i]] != undefined) ? words += vocab[dataArr[i]]: console.log('undefined word:' + dataArr[i]);
+		(getId(dataArr[i]) != undefined) ? words += getId(dataArr[i]).word: console.log('undefined word:' + dataArr[i]);
 	};
 
 	return words
-	*/
 }
 
 
@@ -174,10 +158,10 @@ function train(inputMessage, outputMessage) {
 	});
 
 
-	var trainResult = toWords(net.run(inputData).split(' '));
+	var trainResult = toWords(net.run(inputData));
 
-	//console.log(`[BOT] afterOutput: ${trainResult}`);
-	//console.log(`---------------------------------`)
+	console.log(`[BOT] afterOutput: ${trainResult}`);
+	console.log(`---------------------------------`)
 
 
 	return trainResult;
@@ -189,14 +173,13 @@ function train(inputMessage, outputMessage) {
  * @param {String} inputMessage 
  */
 function generateReply(inputMessage) {
-	//var inputData = 
-	toData(inputMessage);
+	var inputData = toData(inputMessage);
 
 	//console.log(net.run(initData));
 	//inputData.forEach(id => console.log(getId(id).word));
-	//var reply = toWords(net.run(inputData));
-	//console.log(`[BOT] reply: ${reply}`);
-	//return reply
+	var reply = toWords(net.run(inputData));
+	console.log(`[BOT] reply: ${reply}`);
+	return reply
 }
 
 /**
@@ -227,27 +210,22 @@ function loadTraining() {
 	}
 }
 
-function insertVocab(input) {
+function insertVocab(input, callback) {
 	mysqlCon.query(`INSERT INTO vocab (word) VALUES ('${input}');`, (err) => {
 		if (err) throw err;
-		loadVocab();
+		if(callback != undefined) callback();
 	});
+
 }
 
-function loadVocab() {
-
+function loadVocab(callback) {
 	mysqlCon.query(`SELECT * FROM vocab`, function (err, result) {
 		if (err) throw err;
 		vocab = result
+
 		console.log(`[MYSQL] Loaded vocab from database:`);
 		console.log(vocab);
+
+		if(callback != undefined) callback();
 	});
-
-
-	/*
-	if (vocabOptions.load) {
-		vocab = JSON.parse(fs.readFileSync(vocabOptions.file, "utf8"));
-		console.log(`[VOCAB] LOADED from ${vocabOptions.file}`);
-	}
-	*/
 }
