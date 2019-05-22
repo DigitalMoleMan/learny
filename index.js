@@ -1,20 +1,16 @@
 
-const express = require('express');
-const app = express();
-const expressPort = 3001;
 
-const mysql = require('mysql');
-const mysqlConnection = mysql.createConnection({
-	host: 'localhost',
-	user: 'learny',
-	password: 'pass',
-	database: 'learny_data'
-})
-
-mysqlConnection.connect()
 
 const brain = require('brain.js');
 const fs = require('file-system');
+
+const mysql = require('mysql');
+const mysqlCon = mysql.createConnection(JSON.parse(fs.readFileSync('db_cred.json')));
+
+mysqlCon.connect((err) => {
+	if (err) throw err;
+	console.log(`[MYSQL] Connected`);
+});
 
 const ioPort = 3000; // server port;
 const io = require('socket.io')(ioPort); //server start
@@ -28,11 +24,12 @@ const config = {
 
 const net = new brain.recurrent.LSTM(config);
 
-var vocab = new Array;
+var vocab = []
+loadVocab();
 
 var trainingOptions = {
 	file: 'training/ver_2.json',
-	load: false,
+	load: true,
 	save: true
 }
 
@@ -42,21 +39,43 @@ var vocabOptions = {
 	save: false
 }
 
-loadTraining();
+//loadTraining();
 
-loadVocab();
+//loadVocab();
 
 //console.log(vocab)
 const initData = require('./data.json');
+
+//initData.forEach(msg => console.log(msg))
 
 var trainingMode = false;
 /*
 initData.forEach(message => {
 	console.log(toWords(toData(message.toLowerCase().split(' '))));
 })
-*/
-saveVocab();
 
+
+*/
+//saveVocab();
+
+getWord = (word) => {
+	var vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)];
+	console.log(vocabIndex);
+	if (vocabIndex == undefined) {
+		insertVocab(word);
+
+		vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)];
+
+		setTimeout(() => {
+			console.log("added");
+			console.log(vocabIndex);
+			return vocabIndex;
+		}, 1000);
+		
+
+	} else return vocabIndex;
+}
+getId = (id) => vocab[vocab.findIndex(elmt => elmt.id === id)];
 
 while (trainingMode) {
 
@@ -76,11 +95,12 @@ io.on("connection", socket => {
 	console.log(`[SERVER] ${socket.id} connected`);
 
 	socket.on('sendMessage', (clientMessage) => {
+		console.log(`[SERVER] ${socket.id}: ${clientMessage}`);
 		var reply = generateReply(clientMessage)
 		socket.emit('message', reply);
 	});
 
-	// Commands
+	// Client commands
 	socket.on('save', () => saveTraining())
 	socket.on('load', () => loadTraining())
 	socket.on('toggleTraining', () => trainingMode = !trainingMode);
@@ -88,31 +108,42 @@ io.on("connection", socket => {
 	socket.on('disconnect', (reason) => console.log(`[SERVER] ${socket.id} disconnected - ${reason}`));
 });
 
-function toData(wordArr) {
-	var data = new String;
 
-	wordArr.forEach(word => {
-		if (!vocab.includes(word)) vocab.push(word);
+/**
+ * converts a string to input/output data
+ * @param {String} input 
+ */
+function toData(input) {
 
-		data += (vocab.indexOf(word) + " ");
+	var wordArr = input.toLowerCase().split(' ');
+	var data = new Array;
+
+	wordArr.forEach((word) => {
+		data.push(getWord(word).id);
+
 	});
-	//console.log(vocab);
-
+	console.log(data);
 	return data
 }
 
+/**
+ * converts input/output data to a string
+ * @param {Array} dataArr 
+ */
 function toWords(dataArr) {
 	var words = new String;
-	for(i=0;i<dataArr.length;i++){
-		(vocab[dataArr[i]] != undefined) ? words += vocab[dataArr[i]] : console.log('undefined word:' + dataArr[i]);
+	/*
+	for (i = 0; i < dataArr.length; i++) {
+		(vocab[dataArr[i]] != undefined) ? words += vocab[dataArr[i]]: console.log('undefined word:' + dataArr[i]);
 	};
 
 	return words
+	*/
 }
 
 
 /**
- * @function train trains the net on [inputMessage] and [outputMessage] after converting them to [inputData] and [outputData].
+ * @function train trains the net on inputMessage and outputMessage after converting them to inputData and outputData.
  * @param {String} inputMessage 
  * @param {String} outputMessage 
  */
@@ -120,8 +151,8 @@ function train(inputMessage, outputMessage) {
 
 
 
-	var inputData = toData(inputMessage.toLowerCase().split('')).split('');
-	var outputData = toData(outputMessage.toLowerCase().split('')).split('');
+	var inputData = toData(inputMessage)
+	var outputData = toData(outputMessage);
 
 
 	//console.log(`	inputData: ${inputData}`);
@@ -145,10 +176,10 @@ function train(inputMessage, outputMessage) {
 
 	var trainResult = toWords(net.run(inputData).split(' '));
 
-	console.log(`[BOT] afterOutput: ${trainResult}`);
-	console.log(`---------------------------------`)
+	//console.log(`[BOT] afterOutput: ${trainResult}`);
+	//console.log(`---------------------------------`)
 
-	
+
 	return trainResult;
 }
 
@@ -158,16 +189,20 @@ function train(inputMessage, outputMessage) {
  * @param {String} inputMessage 
  */
 function generateReply(inputMessage) {
-	var inputData = toData(inputMessage.toLowerCase().split('')).split('');
-	var reply = toWords(net.run(inputData).split(' '));
-	console.log(`[BOT] reply: ${reply}`);
-	return reply
+	//var inputData = 
+	toData(inputMessage);
+
+	//console.log(net.run(initData));
+	//inputData.forEach(id => console.log(getId(id).word));
+	//var reply = toWords(net.run(inputData));
+	//console.log(`[BOT] reply: ${reply}`);
+	//return reply
 }
 
 /**
  * @function saveTraining saves the current neural net to net.json
  * TODO: move training data to a database.
- * TODO: implement net "version control" in order to undo bad training.
+ * TODO: implement net "version control".
  */
 function saveTraining() {
 	if (trainingOptions.save) {
@@ -192,17 +227,27 @@ function loadTraining() {
 	}
 }
 
-
-function saveVocab() {
-	if (vocabOptions.save) {
-		fs.writeFileSync(`${vocabOptions.file}`, JSON.stringify(vocab));
-		console.log(`[VOCAB] SAVED to ${vocabOptions.file}`);
-	}
+function insertVocab(input) {
+	mysqlCon.query(`INSERT INTO vocab (word) VALUES ('${input}');`, (err) => {
+		if (err) throw err;
+		loadVocab();
+	});
 }
 
 function loadVocab() {
+
+	mysqlCon.query(`SELECT * FROM vocab`, function (err, result) {
+		if (err) throw err;
+		vocab = result
+		console.log(`[MYSQL] Loaded vocab from database:`);
+		console.log(vocab);
+	});
+
+
+	/*
 	if (vocabOptions.load) {
 		vocab = JSON.parse(fs.readFileSync(vocabOptions.file, "utf8"));
 		console.log(`[VOCAB] LOADED from ${vocabOptions.file}`);
 	}
+	*/
 }

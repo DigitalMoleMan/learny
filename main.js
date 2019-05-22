@@ -24,7 +24,7 @@ msgInput.addEventListener('keypress', (e) => {
 })
 
 /**
- * @function insert posts a new line in the log
+ * @function addLine posts a new line in the log
  * @param {String} input 
  */
 function addLine(input) {
