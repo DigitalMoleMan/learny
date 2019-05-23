@@ -1,3 +1,5 @@
+const learnyConfig = require('./learny_config.json');
+
 const brain = require('brain.js');
 const fs = require('file-system');
 
@@ -9,42 +11,39 @@ mysqlCon.connect((err) => {
 	console.log(`[MYSQL] Connected`);
 });
 
-const ioPort = 3000; // server port;
-const io = require('socket.io')(ioPort); //server start
+//const ioPort = 3000; // server port;
+const io = require('socket.io')(learnyConfig.ioPort); //server start
 
-const config = {
+const config = { //bot configuration
 	binaryThresh: 0.5,
 	hiddenLayers: [10, 20, 10], // array of ints for the sizes of the hidden layers in the network
 	activation: 'sigmoid', // supported activation types: ['sigmoid', 'relu', 'leaky-relu', 'tanh'],
 	leakyReluAlpha: 0.01 // supported for activation type 'leaky-relu'
 };
 
-const net = new brain.recurrent.LSTM(config);
+const net = new brain.recurrent.LSTM(config); //Create instance of brain
 
 var vocab = []
 loadVocab();
 
 var trainingOptions = {
-	file: 'training/ver_2.json',
+	file: config.trainingFile,
 	load: true,
 	save: true
 }
 
-var vocabOptions = {
-	file: 'vocab/vocab_1.json',
-	load: true,
-	save: false
+try {
+	loadTraining();
+} catch {
+	saveTraining();
 }
 
-loadTraining();
-
-//loadVocab();
-
-//console.log(vocab)
 const initData = require('./data.json');
 
 
-var trainingMode = false;
+var trainingMode = true;
+
+var lastMessage = "";
 
 /**
  * @param {function} callback
@@ -54,7 +53,9 @@ getWord = (word, callback) => {
 	try {
 		vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)].id;
 	} catch {
-		insertVocab(word, loadVocab(() => vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)].id));
+		insertVocab(word, loadVocab(() => {
+			vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)].id;
+		}));
 	}
 	console.log(vocabIndex);
 	callback(vocabIndex);
@@ -62,26 +63,55 @@ getWord = (word, callback) => {
 }
 getId = (id) => vocab[vocab.findIndex(elmt => elmt.id === id)];
 
-while (trainingMode) {
+if (trainingMode) {
+	/*
+	var unknownWords = [];
+	
+	initData.forEach(message => {
+		
+		
+	})
 
-	var index = Math.floor(Math.random() * (initData.length - 1));
+	insertVocab(word);
+	*/
+	/*
+		var index = Math.floor(Math.random() * (initData.length - 1));
 
-	var result = train(initData[index], initData[index + 1])
+		var result = train(initData[index], initData[index + 1])
 
-	if (result == initData[index + 1]) {
-		saveTraining();
+		if (result == initData[index + 1]) {
+			//saveTraining();
 
-		initData.splice(index, 2);
-		io.emit('message', result);
-	}
+			initData.splice(index, 2);
+			io.emit('message', result);
+		}
+		*/
 }
 
 io.on("connection", socket => {
 	console.log(`[SERVER] ${socket.id} connected`);
 
+	/**
+	 * Triggers when a connected client sends a message.
+	 * Generates and a reply to the incoming message and sends it to the client.
+	 */
 	socket.on('sendMessage', (clientMessage) => {
 		console.log(`[SERVER] ${socket.id}: ${clientMessage}`);
+		var unknownWords = [];
+
+		clientMessage.split(' ').forEach(word => {
+			var vocabIndex = vocab[vocab.findIndex(elmt => elmt.word === word)];
+			if (vocabIndex == undefined && unknownWords[unknownWords.findIndex(elmt => elmt === word)] == undefined) {
+				unknownWords.push(word);
+			}
+		})
+
+		unknownWords.forEach(word => insertVocab(word));
+
+		train(lastMessage, clientMessage);
+
 		var reply = generateReply(clientMessage)
+		lastMessage = reply;
 		socket.emit('message', reply);
 	});
 
@@ -93,33 +123,30 @@ io.on("connection", socket => {
 	socket.on('disconnect', (reason) => console.log(`[SERVER] ${socket.id} disconnected - ${reason}`));
 });
 
-
 /**
- * converts a string to input/output data
- * @param {String} input 
+ * converts a string to data.
+ * @param {String} inputString 
  */
-function toData(input) {
+function toData(inputString) {
 
-	var wordArr = input.toLowerCase().split(' ');
+	var wordArr = inputString.toLowerCase().split(' ');
 	var data = new Array;
 
-	wordArr.forEach((word) => {
-		getWord(word, (wordId) => data.push(wordId));
-
-	});
-	console.log(data);
+	wordArr.forEach((word) => getWord(word, (wordId) => data.push(wordId)));
 	return data;
 }
 
 /**
  * converts input/output data to a string
- * @param {Array} dataArr 
+ * @param {Array} data Data array gotten from running the bot or by using toData()
  */
-function toWords(dataArr) {
+function toWords(data) {
+	idArr = data.split(' ');
 	var words = new String;
 
-	for (i = 0; i < dataArr.length; i++) {
-		(getId(dataArr[i]) != undefined) ? words += getId(dataArr[i]).word: console.log('undefined word:' + dataArr[i]);
+	for (i = 0; i < idArr.length; i++) {
+		var wordIndex = getId(idArr[i]);
+		(wordIndex != undefined) ? words += wordIndex.word: console.log('undefined word:' + idArr[i]);
 	};
 
 	return words
@@ -133,14 +160,11 @@ function toWords(dataArr) {
  */
 function train(inputMessage, outputMessage) {
 
-
-
 	var inputData = toData(inputMessage)
 	var outputData = toData(outputMessage);
 
-
-	//console.log(`	inputData: ${inputData}`);
-	//console.log(`	outputData: ${outputData}`);
+	console.log(`[BOT]	inputData: ${inputData}`);
+	console.log(`[BOT]	outputData: ${outputData}`);
 
 	//loadTraining();
 
@@ -158,13 +182,16 @@ function train(inputMessage, outputMessage) {
 	});
 
 
-	var trainResult = toWords(net.run(inputData));
+	var sampleOutputData = net.run(inputData);
+	console.log(`[BOT] sampleOutputData: ${sampleOutputData}`);
+	var sampleOutputMessage = toWords(sampleOutputData);
 
-	console.log(`[BOT] afterOutput: ${trainResult}`);
+	console.log(`[BOT] sampleOutput: ${sampleOutputMessage}`);
 	console.log(`---------------------------------`)
 
+	//saveTraining();
 
-	return trainResult;
+	return sampleOutputMessage;
 }
 
 
@@ -174,10 +201,11 @@ function train(inputMessage, outputMessage) {
  */
 function generateReply(inputMessage) {
 	var inputData = toData(inputMessage);
-
+	console.log(`[BOT] inputData: ${inputData}`);
 	//console.log(net.run(initData));
 	//inputData.forEach(id => console.log(getId(id).word));
-	var reply = toWords(net.run(inputData));
+	var outputData = net.run(inputData)
+	var reply = toWords(outputData);
 	console.log(`[BOT] reply: ${reply}`);
 	return reply
 }
@@ -213,7 +241,7 @@ function loadTraining() {
 function insertVocab(input, callback) {
 	mysqlCon.query(`INSERT INTO vocab (word) VALUES ('${input}');`, (err) => {
 		if (err) throw err;
-		if(callback != undefined) callback();
+		if (callback != undefined) callback();
 	});
 
 }
@@ -226,6 +254,6 @@ function loadVocab(callback) {
 		console.log(`[MYSQL] Loaded vocab from database:`);
 		console.log(vocab);
 
-		if(callback != undefined) callback();
+		if (callback != undefined) callback();
 	});
 }

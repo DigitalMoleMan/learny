@@ -1,11 +1,15 @@
 /**
  * 
  */
-const ip = 'localhost'; //server ip
-//const ip = '192.168.27.248'; //server ip
-const port = 3000; //server port
 
+ //Server connection
+
+const ip = 'localhost'; //server ip
+//const ip = '192.168.27.248';
+const port = 3000; //server port
 const socket = io.connect(`${ip}:${port}`);
+
+
 const msgOutput = document.getElementById('output');
 const msgInput = document.getElementById('input');
 const newLine = document.getElementById('newLine');
