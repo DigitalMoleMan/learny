@@ -53,6 +53,12 @@ Most of my work went fairly smoothly and after about a week of working, the bot 
 
 I have made a couple of last minute fixes to make the bot a little bit less broken.
 
+### Validation
+
+* I got no errors on [validator.nu](https://validator.nu/?doc=https%3A%2F%2Fdigitalmoleman.github.io%2Flearny%2Findex.html)
+
+* [wave.webaim.org](http://wave.webaim.org/report#/https://digitalmoleman.github.io/learny/index.html) reported that the input element had no form label, which I fixed by adding a title attribute to it.
+
 ### index.js
 
 ```javascript
